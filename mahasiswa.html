@@ -1,4 +1,4 @@
-```html
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -103,7 +103,7 @@ display:none;
 
 <input id="manual-token" placeholder="Token QR">
 
-<button onclick="submitManualToken()">Kirim Presensi</button>
+<button onclick="submitManualToken()">Kirim</button>
 
 <div class="status" id="qr-result">
 Silakan scan QR atau masukkan token
@@ -120,8 +120,7 @@ const API_URL="https://script.google.com/macros/s/AKfycbxyCH0XLmY4iZrP0R9U2JoNX8
 const defaultCourseId='cloud-101'
 const defaultSessionId='sesi-02'
 
-let html5QrCode=null
-let isCameraOpen=false
+let scanner=null
 
 function getDeviceId(){
 
@@ -138,108 +137,72 @@ localStorage.setItem('device_id',d)
 return d
 }
 
-async function toggleCamera(){
+function toggleCamera(){
 
 const reader=document.getElementById("reader")
 const btn=document.getElementById("btn-camera")
 
-try{
-
-if(!isCameraOpen){
+if(!scanner){
 
 reader.style.display="block"
-btn.innerText="Membuka kamera..."
 
-html5QrCode=new Html5Qrcode("reader")
-
-const devices=await Html5Qrcode.getCameras()
-
-if(!devices||devices.length===0){
-
-alert("Kamera tidak ditemukan")
-
-return
-
-}
-
-const cameraId=devices[0].id
-
-await html5QrCode.start(
-cameraId,
+scanner=new Html5QrcodeScanner(
+"reader",
 {
 fps:10,
-qrbox:250
-},
-(decodedText)=>{
+qrbox:250,
+rememberLastUsedCamera:true
+}
+)
+
+scanner.render((decodedText)=>{
 
 document.getElementById("manual-token").value=decodedText
 
-html5QrCode.stop().then(()=>{
-html5QrCode.clear()
-html5QrCode=null
-})
+scanner.clear()
+scanner=null
 
 reader.style.display="none"
 
 btn.innerText="📷 Buka Kamera QR"
 btn.className="btn-primary"
 
-isCameraOpen=false
-
 submitManualToken()
 
-}
-)
+})
 
 btn.innerText="Tutup Kamera"
 btn.className="btn-danger"
-
-isCameraOpen=true
 
 }
 
 else{
 
-if(html5QrCode){
-
-await html5QrCode.stop()
-await html5QrCode.clear()
-
-}
-
-html5QrCode=null
+scanner.clear()
+scanner=null
 
 reader.style.display="none"
 
 btn.innerText="📷 Buka Kamera QR"
 btn.className="btn-primary"
 
-isCameraOpen=false
-
-}
-
-}catch(err){
-
-alert("Tidak bisa mengakses kamera: "+err)
-
 }
 
 }
 
-async function sendRequest(path,payload){
+async function sendRequest(path,payload=null){
 
 try{
 
-const res=await fetch(`${API_URL}?path=${path}`,{
-method:'POST',
-body:JSON.stringify(payload)
-})
+const options={method:'POST',body:JSON.stringify(payload)}
+
+const res=await fetch(`${API_URL}?path=${path}`,options)
 
 return await res.json()
 
 }catch(e){
 
-return{ok:false,error:e.message}
+return {ok:false,error:e.message}
 
 }
 
@@ -251,17 +214,16 @@ const nim=document.getElementById('input-nim-qr').value.trim()
 const nama=document.getElementById('input-nama').value.trim()
 const token=document.getElementById('manual-token').value.trim()
 
-const result=document.getElementById('qr-result')
+const res=document.getElementById('qr-result')
 
 if(!nim||!nama||!token){
 
-result.innerText="❌ Harap isi NIM Nama Token"
+res.innerText="❌ Harap isi NIM Nama Token"
 
 return
-
 }
 
-result.innerText="⏳ Memproses..."
+res.innerText="⏳ Memproses..."
 
 const payload={
 user_id:`${nim} - ${nama}`,
@@ -276,13 +238,13 @@ const response=await sendRequest('presence/checkin',payload)
 
 if(response.ok){
 
-result.innerHTML=`✅ Presensi berhasil<br>ID:${response.data.presence_id}`
+res.innerHTML=`✅ Berhasil<br>ID:${response.data.presence_id}`
 
 }
 
 else{
 
-result.innerText="❌ "+response.error
+res.innerText="❌ "+response.error
 
 }
 
@@ -292,4 +254,4 @@ result.innerText="❌ "+response.error
 
 </body>
 </html>
-```
+
