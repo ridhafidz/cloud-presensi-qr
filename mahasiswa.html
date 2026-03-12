@@ -188,10 +188,19 @@
     let html5QrCode = null; let isCameraOpen = false;
 
     function resetCameraUI() {
-      const btn = document.getElementById('btn-camera');
-      document.getElementById('reader').style.display = 'none';
-      btn.innerText = "📷 Buka Kamera QR"; btn.className = "btn-primary"; btn.disabled = false; isCameraOpen = false;
-    }
+
+  const btn = document.getElementById('btn-camera');
+
+  document.getElementById('reader').style.display = 'none';
+
+  btn.innerText = "📷 Buka Kamera QR";
+  btn.className = "btn-primary";
+  btn.disabled = false;
+
+  isCameraOpen = false;
+  html5QrCode = null;
+
+}
 
     async function toggleCamera() {
 
@@ -217,16 +226,16 @@
           { fps: 10, qrbox: 250 },
           (decodedText) => {
 
-            document.getElementById('manual-token').value = decodedText;
+  document.getElementById('manual-token').value = decodedText;
 
-            html5QrCode.stop().then(() => {
-              html5QrCode.clear();
-            });
+  html5QrCode.stop().then(() => {
+    html5QrCode.clear();
+    html5QrCode = null;
+  });
 
-            resetCameraUI();
-            submitManualToken();
-
-          }
+  resetCameraUI();
+  submitManualToken();
+}
         );
 
         document.getElementById("reader").style.display = "block";
@@ -262,7 +271,7 @@
 
   }
 }
- 
+
 
     async function submitManualToken() {
       const nim = document.getElementById('input-nim-qr').value.trim();
