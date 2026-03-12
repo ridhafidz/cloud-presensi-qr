@@ -221,7 +221,8 @@
 
     try {
 
-    const cameras = await Html5Qrcode.getCameras();
+  const cameras = await Html5Qrcode.getCameras();
+console.log("Kamera ditemukan:", cameras);
 
 if (cameras && cameras.length) {
 
