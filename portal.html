@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base target="_top"> <title>Portal Terpadu</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body { 
+      font-family: 'Poppins', sans-serif; 
+      background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%); 
+      margin: 0; 
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    
+    .container { 
+      background: rgba(255, 255, 255, 0.95); 
+      padding: 40px 30px; 
+      border-radius: 20px; 
+      box-shadow: 0 15px 35px rgba(0,0,0,0.1); 
+      width: 100%;
+      max-width: 450px; 
+      text-align: center; 
+      backdrop-filter: blur(10px);
+      animation: fadeIn 0.6s ease-out;
+    }
+    
+    h1 { margin-top: 0; color: #2c3e50; font-size: 26px; font-weight: 700; margin-bottom: 5px; }
+    p { color: #636e72; font-size: 14px; margin-bottom: 30px; }
+
+    .role-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      background: white;
+      border: 2px solid #dfe6e9;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 15px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      color: #2d3436;
+    }
+
+    .role-btn:hover {
+      border-color: #6c5ce7;
+      box-shadow: 0 8px 25px rgba(108, 92, 231, 0.15);
+      transform: translateY(-3px);
+    }
+
+    .role-btn:active { transform: translateY(0); }
+
+    .role-icon { font-size: 40px; }
+    .role-text { text-align: left; }
+    .role-text strong { display: block; font-size: 18px; color: #2d3436; }
+    .role-text span { font-size: 12px; color: #a4b0be; }
+
+    /* Efek Loading saat tombol ditekan */
+    .loading-overlay {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255,255,255,0.8); z-index: 1000; justify-content: center; align-items: center;
+      flex-direction: column; color: #2d3436; font-weight: 600;
+    }
+
+    .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #6c5ce7; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px;}
+    
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+
+  <div class="loading-overlay" id="loading">
+    <div class="spinner"></div>
+    <div>Mengalihkan halaman...</div>
+  </div>
+
+  <div class="container">
+    <h1>Selamat Datang</h1>
+    <p>Silakan pilih portal akses Anda untuk melanjutkan ke sistem presensi terpadu.</p>
+
+    <div class="role-btn" onclick="goTo('dosen')">
+      <div class="role-icon">👨‍🏫</div>
+      <div class="role-text">
+        <strong>Portal Dosen</strong>
+        <span>Dashboard, Generate QR & Telemetri</span>
+      </div>
+    </div>
+
+    <div class="role-btn" onclick="goTo('student')">
+      <div class="role-icon">👨‍🎓</div>
+      <div class="role-text">
+        <strong>Portal Mahasiswa</strong>
+        <span>Scan Presensi, Lokasi GPS & Sensor</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let baseUrl = "";
+
+    // Meminta URL Web App ini secara dinamis ke Server
+    google.script.run.withSuccessHandler(function(url) {
+      baseUrl = url;
+    }).getScriptUrl();
+
+    // Fungsi untuk pindah halaman
+    function goTo(path) {
+      document.getElementById('loading').style.display = 'flex'; // Munculkan loading
+      
+      // Beri sedikit delay agar URL sempat diambil
+      setTimeout(() => {
+        if (baseUrl) {
+          window.top.location.href = baseUrl + "?path=" + path;
+        } else {
+          // Fallback jika baseUrl lambat termuat
+          window.top.location.search = "?path=" + path;
+        }
+      }, 500);
+    }
+  </script>
+</body>
+</html>
