@@ -67,6 +67,7 @@
   </style>
 </head>
 <body>
+
   <button class="btn-back" onclick="window.location.href='index.html'">⬅ Kembali ke Portal</button>
   
   <div class="container">
@@ -196,28 +197,55 @@
 
     function toggleCamera() {
       const btn = document.getElementById('btn-camera');
+
       if (!isCameraOpen) {
-        btn.innerText = "Membuka Kamera..."; btn.disabled = true; 
-        Html5Qrcode.getCameras().then(cameras => {
-          if (cameras && cameras.length > 0) {
-            html5QrCode = new Html5Qrcode("reader");
-            let cameraId = cameras.length > 1 ? cameras[1].id : cameras[0].id;
-            html5QrCode.start( cameraId, { fps: 10, qrbox: { width: 250, height: 250 } },
-              (decodedText) => {
-                document.getElementById('manual-token').value = decodedText;
-                if (html5QrCode.isScanning) html5QrCode.stop().then(() => html5QrCode.clear()).catch(e=>console.log(e));
-                resetCameraUI(); submitManualToken(); 
-              }, (errorMessage) => { }
-            ).then(() => {
-              document.getElementById('reader').style.display = 'block';
-              btn.innerText = "Tutup Kamera"; btn.className = "btn-danger"; btn.disabled = false; isCameraOpen = true;
-            }).catch(err => { alert("Akses kamera ditolak."); resetCameraUI(); });
-          } else { alert("Tidak ada kamera."); resetCameraUI(); }
-        }).catch(err => { alert("Gagal meminta izin."); resetCameraUI(); });
+        btn.innerText = "Membuka Kamera..."; 
+        btn.disabled = true; 
+
+        // Inisialisasi object scanner
+        html5QrCode = new Html5Qrcode("reader");
+
+        // LANGSUNG panggil kamera belakang. Ini akan memaksa browser
+        // memunculkan pop-up "Allow Camera" (Izinkan Kamera).
+        html5QrCode.start(
+          { facingMode: "environment" }, 
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText) => {
+            // Jika berhasil scan QR
+            document.getElementById('manual-token').value = decodedText;
+            if (html5QrCode.isScanning) {
+              html5QrCode.stop().then(() => html5QrCode.clear()).catch(e => console.log(e));
+            }
+            resetCameraUI(); 
+            submitManualToken(); 
+          },
+          (errorMessage) => { 
+            // Abaikan error deteksi frame kosong
+          }
+        ).then(() => {
+          // Jika user menekan tombol "Allow" / "Izinkan"
+          document.getElementById('reader').style.display = 'block';
+          btn.innerText = "Tutup Kamera"; 
+          btn.className = "btn-danger"; 
+          btn.disabled = false; 
+          isCameraOpen = true;
+        }).catch(err => {
+          // Jika user menekan "Block" atau browser tidak support
+          alert("❌ Gagal membuka kamera. Pastikan Anda telah mengizinkan akses kamera di pengaturan browser Anda.");
+          console.error(err);
+          resetCameraUI();
+        });
+
       } else {
+        // Jika sedang menyala, matikan kamera
         if (html5QrCode && html5QrCode.isScanning) {
-          html5QrCode.stop().then(() => { html5QrCode.clear(); resetCameraUI(); }).catch(err => { resetCameraUI(); });
-        } else { resetCameraUI(); }
+          html5QrCode.stop().then(() => { 
+            html5QrCode.clear(); 
+            resetCameraUI(); 
+          }).catch(err => { resetCameraUI(); });
+        } else { 
+          resetCameraUI(); 
+        }
       }
     }
 

@@ -41,7 +41,7 @@
     .info-panel { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap;}
     .info-box { flex: 1; min-width: 80px; background: #f8ecec; padding: 12px; border-radius: 12px; text-align: center; border: 1px solid #dfe6e9;}
     .info-box span { display: block; font-size: 11px; color: #636e72; font-weight: 600;}
-    .info-box strong { font-size: 16px; color: #0984e3;}
+    .info-box strong { font-size: 16px; color: #0984e3; word-break: break-all; }
 
     #map { height: 250px; width: 100%; border-radius: 12px; margin-top: 15px; z-index: 1; border: 2px solid #dfe6e9; display: none;}
 
@@ -197,8 +197,13 @@
 
       const response = await sendRequest(`sensor/accel/latest&nim=${nim}`);
       document.getElementById('btn-fetch-accel').disabled = false;
+      
       if(response.ok) {
-        document.getElementById('dosen-val-x').innerText = response.data.x; document.getElementById('dosen-val-y').innerText = response.data.y; document.getElementById('dosen-val-z').innerText = response.data.z;
+        // PERBAIKAN: Paksa menjadi angka (parseFloat) dan bulatkan 2 desimal (toFixed(2))
+        document.getElementById('dosen-val-x').innerText = parseFloat(response.data.x).toFixed(2); 
+        document.getElementById('dosen-val-y').innerText = parseFloat(response.data.y).toFixed(2); 
+        document.getElementById('dosen-val-z').innerText = parseFloat(response.data.z).toFixed(2);
+        
         res.innerText = "✅ Data terakhir direkam: " + new Date(response.data.ts).toLocaleTimeString();
       } else {
         res.innerText = "❌ Gagal: Mahasiswa belum merekam sensor atau NIM salah.";

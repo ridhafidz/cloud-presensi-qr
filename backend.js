@@ -109,7 +109,14 @@ function handleGetAccelLatest(e) {
   if (!e.parameter.nim) return sendError("missing_nim");
   const data = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("accel").getDataRange().getValues();
   for (let i = data.length - 1; i > 0; i--) {
-    if (String(data[i][0]).startsWith(e.parameter.nim)) return sendSuccess({ x: data[i][2], y: data[i][3], z: data[i][4], ts: data[i][5] });
+    if (String(data[i][0]).startsWith(e.parameter.nim)) {
+      return sendSuccess({ 
+        x: data[i][1], 
+        y: data[i][2], 
+        z: data[i][3], 
+        ts: data[i][6] || data[i][5] 
+      });
+    }
   }
   return sendError("data_not_found");
 }
