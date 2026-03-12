@@ -193,64 +193,72 @@
       btn.innerText = "📷 Buka Kamera QR"; btn.className = "btn-primary"; btn.disabled = false; isCameraOpen = false;
     }
 
-    
     async function toggleCamera() {
 
   const btn = document.getElementById('btn-camera');
 
   if (!isCameraOpen) {
 
-    btn.innerText = "Meminta izin kamera...";
+    btn.innerText = "Membuka kamera...";
     btn.disabled = true;
+
+    html5QrCode = new Html5Qrcode("reader");
 
     try {
 
-      // Paksa browser meminta izin kamera
-      await navigator.mediaDevices.getUserMedia({ video: true });
+      const cameras = await Html5Qrcode.getCameras();
 
-      html5QrCode = new Html5Qrcode("reader");
+      if (cameras && cameras.length) {
 
-      await html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
+        const cameraId = cameras[0].id;
 
-          document.getElementById('manual-token').value = decodedText;
+        await html5QrCode.start(
+          cameraId,
+          { fps: 10, qrbox: 250 },
+          (decodedText) => {
 
-          html5QrCode.stop().then(() => {
-            html5QrCode.clear();
-          });
+            document.getElementById('manual-token').value = decodedText;
 
-          resetCameraUI();
-          submitManualToken();
+            html5QrCode.stop().then(() => {
+              html5QrCode.clear();
+            });
 
-        }
-      );
+            resetCameraUI();
+            submitManualToken();
 
-      document.getElementById('reader').style.display = "block";
-      btn.innerText = "Tutup Kamera";
-      btn.className = "btn-danger";
-      btn.disabled = false;
-      isCameraOpen = true;
+          }
+        );
+
+        document.getElementById("reader").style.display = "block";
+
+        btn.innerText = "Tutup Kamera";
+        btn.className = "btn-danger";
+        btn.disabled = false;
+
+        isCameraOpen = true;
+
+      } else {
+
+        alert("❌ Kamera tidak ditemukan");
+
+      }
 
     } catch (err) {
 
-      alert("❌ Kamera tidak diizinkan atau tidak tersedia");
       console.error(err);
+      alert("❌ Tidak bisa mengakses kamera");
       resetCameraUI();
 
     }
 
   } else {
 
-    if (html5QrCode && html5QrCode.isScanning) {
-      html5QrCode.stop().then(() => {
-        html5QrCode.clear();
-        resetCameraUI();
-      });
-    } else {
-      resetCameraUI();
+    if (html5QrCode) {
+      await html5QrCode.stop();
+      await html5QrCode.clear();
     }
+
+    resetCameraUI();
 
   }
 }
