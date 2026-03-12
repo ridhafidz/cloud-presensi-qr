@@ -228,9 +228,9 @@ if (cameras && cameras.length) {
   let cameraId = cameras[cameras.length - 1].id;
 
   await html5QrCode.start(
-  { facingMode: "environment" },
-    { fps: 10, qrbox: 250 },
-          (decodedText) => {
+  cameraId,
+  { fps: 10, qrbox: 250 },
+  (decodedText) => {
 
   document.getElementById('manual-token').value = decodedText;
 
