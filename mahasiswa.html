@@ -193,57 +193,53 @@
       btn.innerText = "📷 Buka Kamera QR"; btn.className = "btn-primary"; btn.disabled = false; isCameraOpen = false;
     }
 
-    function toggleCamera() {
+    
+    async function toggleCamera() {
+
   const btn = document.getElementById('btn-camera');
 
   if (!isCameraOpen) {
 
-    btn.innerText = "Membuka Kamera...";
+    btn.innerText = "Meminta izin kamera...";
     btn.disabled = true;
 
-    html5QrCode = new Html5Qrcode("reader");
+    try {
 
-    Html5Qrcode.getCameras().then(devices => {
+      // Paksa browser meminta izin kamera
+      await navigator.mediaDevices.getUserMedia({ video: true });
 
-      if (devices && devices.length) {
+      html5QrCode = new Html5Qrcode("reader");
 
-        const cameraId = devices[0].id;
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
 
-        html5QrCode.start(
-          cameraId,
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          (decodedText) => {
+          document.getElementById('manual-token').value = decodedText;
 
-            document.getElementById('manual-token').value = decodedText;
+          html5QrCode.stop().then(() => {
+            html5QrCode.clear();
+          });
 
-            if (html5QrCode.isScanning) {
-              html5QrCode.stop().then(() => html5QrCode.clear());
-            }
-
-            resetCameraUI();
-            submitManualToken();
-          }
-        ).then(() => {
-
-          document.getElementById('reader').style.display = 'block';
-          btn.innerText = "Tutup Kamera";
-          btn.className = "btn-danger";
-          btn.disabled = false;
-          isCameraOpen = true;
-
-        }).catch(err => {
-          alert("❌ Kamera gagal dibuka");
-          console.error(err);
           resetCameraUI();
-        });
+          submitManualToken();
 
-      }
+        }
+      );
 
-    }).catch(err => {
-      alert("❌ Tidak bisa mengakses kamera");
+      document.getElementById('reader').style.display = "block";
+      btn.innerText = "Tutup Kamera";
+      btn.className = "btn-danger";
+      btn.disabled = false;
+      isCameraOpen = true;
+
+    } catch (err) {
+
+      alert("❌ Kamera tidak diizinkan atau tidak tersedia");
       console.error(err);
       resetCameraUI();
-    });
+
+    }
 
   } else {
 
