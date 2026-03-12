@@ -170,7 +170,7 @@
         qrContainer.innerHTML = ''; qrContainer.style.borderStyle = 'solid'; qrContainer.style.borderColor = '#6c5ce7';
         
         // Ukuran QR dibesarkan sedikit khusus web dosen
-        qrcode = new QRCode(qrContainer, { text: response.data.qr_token, width: 250, height: 250, colorDark : "#2f3542", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H });
+        qrcode = new QRCode(qrContainer, { text: String(response.data.qr_token), width: 250, height: 250, colorDark : "#2f3542", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H });
         startCountdown(120);
       } else {
         document.getElementById('status-text').innerText = '❌ Gagal: ' + response.error;

@@ -54,20 +54,38 @@ function handleCheckin(body) {
 
   const sheetTokens = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("tokens");
   const dataTokens = sheetTokens.getDataRange().getValues();
-  let tokenValid = false, tokenExists = false;
+  
+  let tokenExists = false;
+  let isMismatch = false;
+  let isExpired = false;
+  let tokenValid = false;
 
   for (let i = dataTokens.length - 1; i > 0; i--) {
     if (dataTokens[i][0] === body.qr_token) {
       tokenExists = true;
-      if (dataTokens[i][1] === body.course_id && dataTokens[i][2] === body.session_id && new Date() <= new Date(dataTokens[i][4])) {
-        tokenValid = true;
+      
+      // Ubah semua jadi huruf kecil agar kebal dari salah ketik huruf kapital
+      const dbCourse = String(dataTokens[i][1]).toLowerCase();
+      const reqCourse = String(body.course_id).toLowerCase();
+      const dbSession = String(dataTokens[i][2]).toLowerCase();
+      const reqSession = String(body.session_id).toLowerCase();
+      
+      if (dbCourse !== reqCourse || dbSession !== reqSession) {
+        isMismatch = true; // Error karena Course/Session beda
+      } else if (new Date() > new Date(dataTokens[i][4])) {
+        isExpired = true; // Error karena waktu habis
+      } else {
+        tokenValid = true; // Lolos semua uji!
       }
       break; 
     }
   }
 
+  // Pisahkan pesan error agar gampang di-debug
   if (!tokenExists) return sendError("token_invalid");
-  if (!tokenValid) return sendError("token_expired");
+  if (isMismatch) return sendError("course_atau_session_tidak_cocok");
+  if (isExpired) return sendError("token_expired");
+  if (!tokenValid) return sendError("token_invalid");
 
   const sheetPresence = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("presence");
   const presenceId = "PR-" + Utilities.getUuid().substring(0, 4).toUpperCase();
