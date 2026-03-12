@@ -183,25 +183,27 @@ function toggleCamera(){
 
 const reader=document.getElementById("reader")
 
-if(!cameraActive){
+if(!isCameraOpen){
 
 reader.style.display="block"
 
 html5QrCode=new Html5Qrcode("reader")
 
+Html5Qrcode.getCameras().then(devices=>{
+
+if(devices && devices.length){
+
 html5QrCode.start(
-{facingMode:"environment"},
+devices[0].id,
 {fps:10,qrbox:250},
 
 (decodedText)=>{
 
-document.getElementById("token").value=decodedText
+document.getElementById("manual-token").value=decodedText
 
 html5QrCode.stop()
 
 reader.style.display="none"
-
-cameraActive=false
 
 submitManualToken()
 
@@ -209,7 +211,11 @@ submitManualToken()
 
 )
 
-cameraActive=true
+}
+
+})
+
+isCameraOpen=true
 
 }
 
@@ -219,12 +225,11 @@ html5QrCode.stop()
 
 reader.style.display="none"
 
-cameraActive=false
+isCameraOpen=false
 
 }
 
 }
-
 
 async function submitManualToken(){
 
