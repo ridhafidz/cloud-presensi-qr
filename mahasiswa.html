@@ -204,20 +204,21 @@
 
     async function toggleCamera() {
 
-
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
   alert("Browser tidak mendukung kamera");
   return;
 }
 
-  const btn = document.getElementById('btn-camera');
+const btn = document.getElementById('btn-camera');
 
-  if (!isCameraOpen) {
+if (!isCameraOpen) {
 
-    btn.innerText = "Membuka kamera...";
-    btn.disabled = true;
+  document.getElementById("reader").style.display = "block";
 
-    html5QrCode = new Html5Qrcode("reader");
+  btn.innerText = "Membuka kamera...";
+  btn.disabled = true;
+
+  html5QrCode = new Html5Qrcode("reader");
 
     try {
 
