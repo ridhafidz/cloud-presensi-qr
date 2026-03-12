@@ -130,7 +130,9 @@
   </nav>
 
   <script>
-    // Konfigurasi Global
+    // MASUKKAN URL WEB APP GOOGLE APPS SCRIPT KAMU DI SINI:
+    const API_URL = "https://script.google.com/macros/s/AKfycbxyCH0XLmY4iZrP0R9U2JoNX8W66klvqtwJevp4CNeCOezL-DWVh0tRkofPwiyKFSpC/exec";
+
     const defaultCourseId = 'cloud-101';
     const defaultSessionId = 'sesi-02';
     
@@ -140,23 +142,38 @@
       return d;
     }
 
-    // Sinkronisasi NIM antar Tab otomatis
     function syncNIM(value) {
       document.getElementById('input-nim-qr').value = value;
       document.getElementById('input-nim-accel').value = value;
       document.getElementById('input-nim-gps').value = value;
     }
 
-    // ==================== NAVIGASI TAB ====================
     function switchTab(tabId, btnElement) {
       document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
       btnElement.classList.add('active');
-
       document.querySelectorAll('.card').forEach(card => card.classList.remove('active'));
       document.getElementById('tab-' + tabId).classList.add('active');
+      if(tabId === 'gps' && map) setTimeout(() => map.invalidateSize(), 100);
+    }
 
-      if(tabId === 'gps' && map) {
-        setTimeout(() => map.invalidateSize(), 100);
+    // ==================== FUNGSI FETCH API (PENGGANTI google.script.run) ====================
+    async function sendRequest(path, payload = null) {
+      try {
+        const isPost = payload !== null;
+        const options = {
+          method: isPost ? 'POST' : 'GET',
+        };
+        
+        if (isPost) {
+          options.body = JSON.stringify(payload);
+          // Tidak pakai Content-Type: application/json agar tidak diblokir oleh sistem CORS Google
+        }
+
+        const response = await fetch(`${API_URL}?path=${path}`, options);
+        return await response.json();
+      } catch (error) {
+        console.error("API Error:", error);
+        return { ok: false, error: error.message };
       }
     }
 
@@ -165,7 +182,6 @@
     let html5QrCode = null;
     let isCameraOpen = false;
 
-    // Fungsi reset UI kamera agar aman
     function resetCameraUI() {
       const btn = document.getElementById('btn-camera');
       const reader = document.getElementById('reader');
@@ -181,26 +197,22 @@
 
       if (!isCameraOpen) {
         btn.innerText = "Membuka Kamera...";
-        btn.disabled = true; // Cegah double-click yang bikin error
+        btn.disabled = true; 
 
-        // Cara paling aman memanggil kamera HP
         Html5Qrcode.getCameras().then(cameras => {
           if (cameras && cameras.length > 0) {
             html5QrCode = new Html5Qrcode("reader");
-            // Pilih kamera belakang jika ada
             let cameraId = cameras.length > 1 ? cameras[1].id : cameras[0].id;
             
             html5QrCode.start(
-              cameraId, 
-              { fps: 10, qrbox: { width: 250, height: 250 } },
+              cameraId, { fps: 10, qrbox: { width: 250, height: 250 } },
               (decodedText) => {
-                // Berhasil Scan
                 document.getElementById('manual-token').value = decodedText;
                 if (html5QrCode.isScanning) html5QrCode.stop().then(() => html5QrCode.clear()).catch(e=>console.log(e));
                 resetCameraUI();
                 submitManualToken(); 
               },
-              (errorMessage) => { /* Abaikan error per-frame pencarian QR */ }
+              (errorMessage) => { }
             ).then(() => {
               document.getElementById('reader').style.display = 'block';
               btn.innerText = "Tutup Kamera";
@@ -221,22 +233,16 @@
         });
 
       } else {
-        // Matikan Kamera dengan aman
         if (html5QrCode && html5QrCode.isScanning) {
           html5QrCode.stop().then(() => {
             html5QrCode.clear();
             resetCameraUI();
-          }).catch(err => {
-            console.error(err);
-            resetCameraUI();
-          });
-        } else {
-          resetCameraUI();
-        }
+          }).catch(err => { resetCameraUI(); });
+        } else { resetCameraUI(); }
       }
     }
 
-    function submitManualToken() {
+    async function submitManualToken() {
       const nim = document.getElementById('input-nim-qr').value.trim();
       const nama = document.getElementById('input-nama').value.trim();
       const token = document.getElementById('manual-token').value.trim();
@@ -260,17 +266,16 @@
         ts: new Date().toISOString()
       };
 
-      google.script.run
-        .withSuccessHandler(response => {
-          if(response.ok) {
-            res.innerHTML = `✅ <b>Berhasil!</b><br>ID: ${response.data.presence_id}<br>${new Date().toLocaleTimeString()}`;
-            res.style.background = "#e8f8f5"; res.style.color = "#27ae60";
-          } else {
-            res.innerText = "❌ Gagal: " + response.error;
-            res.style.background = "#ff7675"; res.style.color = "white";
-          }
-        })
-        .processCheckin(payload);
+      // MENGGUNAKAN FETCH API
+      const response = await sendRequest('presence/checkin', payload);
+      
+      if(response.ok) {
+        res.innerHTML = `✅ <b>Berhasil!</b><br>ID: ${response.data.presence_id}<br>${new Date().toLocaleTimeString()}`;
+        res.style.background = "#e8f8f5"; res.style.color = "#27ae60";
+      } else {
+        res.innerText = "❌ Gagal: " + response.error;
+        res.style.background = "#ff7675"; res.style.color = "white";
+      }
     }
 
 
@@ -316,7 +321,7 @@
       chartObj.update();
     }
 
-    function toggleAccel() {
+    async function toggleAccel() {
       const nim = document.getElementById('input-nim-accel').value.trim();
       const res = document.getElementById('accel-result');
       
@@ -343,13 +348,12 @@
         
         if (accelData.length > 0) {
           res.innerText = `⏳ Mengirim ${accelData.length} data ke server...`;
-          google.script.run
-            .withSuccessHandler(r => {
-              if(r.ok) res.innerText = `✅ Sukses mengirim ${r.data.saved_records} baris data!`;
-              else res.innerText = `❌ Gagal: ` + r.error;
-            })
-            // NIM digabungkan ke Device_ID agar masuk ke Sheet
-            .processAccelBatch({ device_id: `${nim}_${getDeviceId()}`, data: accelData });
+          
+          // MENGGUNAKAN FETCH API
+          const response = await sendRequest('sensor/accel/batch', { device_id: `${nim}_${getDeviceId()}`, data: accelData });
+          
+          if(response.ok) res.innerText = `✅ Sukses mengirim ${response.data.saved_records} baris data!`;
+          else res.innerText = `❌ Gagal: ` + response.error;
         }
       }
     }
@@ -404,7 +408,7 @@
         res.innerText = "⏳ Mencari satelit...";
 
         gpsWatchId = navigator.geolocation.watchPosition(
-          (pos) => {
+          async (pos) => {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
             const acc = pos.coords.accuracy;
@@ -416,11 +420,14 @@
             initMap(lat, lng);
             res.innerText = "📡 Terhubung. Mengirim ke server...";
 
-            // NIM digabungkan ke Device_ID agar masuk ke Sheet
-            google.script.run.processGPS({
+            // MENGGUNAKAN FETCH API
+            const response = await sendRequest('sensor/gps', {
               device_id: `${nim}_${getDeviceId()}`, lat: lat, lng: lng, accuracy: acc, ts: new Date().toISOString()
             });
-            setTimeout(() => res.innerText = "✅ Data dikirim. Memantau...", 2000);
+            
+            if (response.ok) {
+              setTimeout(() => res.innerText = "✅ Data dikirim. Memantau...", 2000);
+            }
           },
           (err) => { res.innerText = "❌ Gagal mendapat sinyal GPS."; },
           { enableHighAccuracy: true }

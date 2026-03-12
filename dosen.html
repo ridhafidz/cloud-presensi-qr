@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Presensi Dosen</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { font-family: 'Poppins', sans-serif; background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%); margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px 12px; box-sizing: border-box;}
+    .container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 15px; margin-bottom: 80px; }
+    .card { background: rgba(255, 255, 255, 0.95); padding: 30px 24px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 100%; box-sizing: border-box; text-align: center; display: none; }
+    .card.active { display: block; }
+    h2 { margin-top: 0; color: #2c3e50; font-size: 22px; font-weight: 600; border-bottom: 2px solid #f1f2f6; padding-bottom: 10px;}
+    .input-group { margin-bottom: 15px; text-align: left; }
+    label { display: block; margin-bottom: 6px; color: #636e72; font-weight: 600; font-size: 0.85rem; text-transform: uppercase;}
+    input { width: 100%; border: 2px solid #dfe6e9; border-radius: 12px; padding: 12px; box-sizing: border-box; font-family: 'Poppins', sans-serif; font-size: 14px; transition: 0.3s;}
+    input:focus { border-color: #6c5ce7; outline: none; }
+    .row { display: flex; gap: 10px; } .row .input-group { flex: 1; }
+    #qr-container { background: #ffffff; border: 2px dashed #ced6e0; border-radius: 16px; margin: 15px auto; display: flex; justify-content: center; align-items: center; width: 220px; height: 220px; padding: 10px; }
+    #qr-container img, #qr-container canvas { border-radius: 8px; }
+    .status { margin-top: 15px; font-size: 14px; font-weight: 500; color: #2f3542; white-space: pre-line; background: #f1f2f6; padding: 10px; border-radius: 10px;}
+    .countdown { margin-top: 10px; color: #d35400; font-size: 13px; font-weight: 600; background: #ffeaa7; display: inline-block; padding: 5px 15px; border-radius: 20px; opacity: 0; }
+    button { background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white; border: none; padding: 14px 20px; border-radius: 12px; cursor: pointer; font-size: 15px; font-weight: 600; font-family: 'Poppins', sans-serif; margin-top: 10px; width: 100%; transition: all 0.2s ease;}
+    button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4); }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button:disabled { background: #b2bec3; cursor: not-allowed; }
+    .btn-search { background: linear-gradient(135deg, #0984e3 0%, #74b9ff 100%); }
+    .btn-back { background: #636e72; margin-bottom: 20px; width: auto; padding: 10px 20px; align-self: flex-start;}
+    .info-panel { display: flex; gap: 10px; margin: 15px 0;}
+    .info-box { flex: 1; background: #f8ecec; padding: 12px; border-radius: 12px; text-align: center; border: 1px solid #dfe6e9;}
+    .info-box span { display: block; font-size: 11px; color: #636e72; font-weight: 600;}
+    .info-box strong { font-size: 16px; color: #0984e3;}
+    #map { height: 250px; border-radius: 12px; margin-top: 15px; z-index: 1; border: 2px solid #dfe6e9; display: none;}
+    .bottom-nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 8px; border-radius: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); display: flex; gap: 5px; z-index: 1000;}
+    .nav-item { background: transparent; color: #636e72; border: none; padding: 12px 24px; border-radius: 24px; font-weight: 600; font-size: 14px; margin: 0; width: auto;}
+    .nav-item.active { background: #6c5ce7; color: white; box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4);}
+  </style>
+</head>
+<body>
+
+  <button class="btn-back" onclick="window.location.href='index.html'">⬅ Kembali ke Portal</button>
+
+  <div class="container">
+    <div class="card active" id="tab-qr">
+      <h2>Generate Presensi QR</h2>
+      <div class="row">
+        <div class="input-group">
+          <label>Course ID</label>
+          <input id="input-course" type="text" value="Cloud-101" />
+        </div>
+        <div class="input-group">
+          <label>Session ID</label>
+          <input id="input-session" type="text" value="Sesi-02" />
+        </div>
+      </div>
+      <div id="qr-container"><span id="placeholder" style="color: #a4b0be; font-size: 14px;">Klik generate untuk memulai</span></div>
+      <div id="status-text" class="status">Sistem siap digunakan.</div>
+      <div id="countdown-text" class="countdown"></div>
+      <button onclick="generateQR()" id="btn-generate">Generate QR Baru</button>
+    </div>
+
+    <div class="card" id="tab-accel">
+      <h2>Pantau Getaran Mahasiswa</h2>
+      <div class="input-group">
+        <label>Cari NIM Mahasiswa</label>
+        <input id="search-nim-accel" type="text" placeholder="Masukkan NIM..." oninput="syncNIM(this.value)" />
+      </div>
+      <button class="btn-search" onclick="fetchAccel()" id="btn-fetch-accel">🔍 Ambil Data Accel</button>
+      <div class="info-panel">
+        <div class="info-box"><span>Sumbu X</span><strong id="dosen-val-x">-</strong></div>
+        <div class="info-box"><span>Sumbu Y</span><strong id="dosen-val-y">-</strong></div>
+        <div class="info-box"><span>Sumbu Z</span><strong id="dosen-val-z">-</strong></div>
+      </div>
+      <div class="status" id="accel-status">Menunggu pencarian...</div>
+    </div>
+
+    <div class="card" id="tab-gps">
+      <h2>Pantau Lokasi Mahasiswa</h2>
+      <div class="input-group">
+        <label>Cari NIM Mahasiswa</label>
+        <input id="search-nim-gps" type="text" placeholder="Masukkan NIM..." oninput="syncNIM(this.value)" />
+      </div>
+      <button class="btn-search" onclick="fetchGPS()" id="btn-fetch-gps">🧭 Ambil Data GPS</button>
+      <div class="info-panel">
+        <div class="info-box"><span>Latitude</span><strong id="dosen-val-lat">-</strong></div>
+        <div class="info-box"><span>Longitude</span><strong id="dosen-val-lng">-</strong></div>
+      </div>
+      <div id="map"></div>
+      <div class="status" id="gps-status">Menunggu pencarian...</div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item active" onclick="switchTab('qr', this)">☑ QR Code</button>
+    <button class="nav-item" onclick="switchTab('accel', this)">📈 Accel</button>
+    <button class="nav-item" onclick="switchTab('gps', this)">🧭 Map GPS</button>
+  </nav>
+
+  <script>
+    // MASUKKAN URL WEB APP GOOGLE APPS SCRIPT KAMU DI SINI:
+    const API_URL = "https://script.google.com/macros/s/AKfycbxyCH0XLmY4iZrP0R9U2JoNX8W66klvqtwJevp4CNeCOezL-DWVh0tRkofPwiyKFSpC/exec";
+
+    let qrcode = null; let countdownTimer = null; let map = null; let marker = null;
+
+    function syncNIM(value) { document.getElementById('search-nim-accel').value = value; document.getElementById('search-nim-gps').value = value; }
+
+    function switchTab(tabId, btnElement) {
+      document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active')); btnElement.classList.add('active');
+      document.querySelectorAll('.card').forEach(card => card.classList.remove('active')); document.getElementById('tab-' + tabId).classList.add('active');
+      if(tabId === 'gps' && map) setTimeout(() => map.invalidateSize(), 100);
+    }
+
+    async function sendRequest(path, payload = null) {
+      try {
+        const isPost = payload !== null;
+        const options = { method: isPost ? 'POST' : 'GET' };
+        if (isPost) { options.body = JSON.stringify(payload); options.headers = { "Content-Type": "text/plain;charset=utf-8" }; }
+        const response = await fetch(`${API_URL}?path=${path}`, options);
+        return await response.json();
+      } catch (error) { return { ok: false, error: error.message }; }
+    }
+
+    async function generateQR() {
+      const course = document.getElementById('input-course').value.trim();
+      const session = document.getElementById('input-session').value.trim();
+      if(!course || !session) return alert("Course ID dan Session ID wajib diisi!");
+
+      const btn = document.getElementById('btn-generate');
+      btn.disabled = true; btn.innerText = "Membuat QR...";
+      if (countdownTimer) clearInterval(countdownTimer);
+      document.getElementById('placeholder').style.display = 'none'; document.getElementById('status-text').innerText = '⏳ Sedang generate...'; document.getElementById('countdown-text').style.opacity = '0';
+      
+      const payload = { course_id: course, session_id: session, ts: new Date().toISOString() };
+      
+      // MENGGUNAKAN FETCH
+      const response = await sendRequest('presence/qr/generate', payload);
+
+      btn.disabled = false; btn.innerText = "Paksa Refresh QR";
+      if(response.ok) {
+        document.getElementById('status-text').innerText = '✅ Token Aktif: ' + response.data.qr_token;
+        const qrContainer = document.getElementById('qr-container');
+        qrContainer.innerHTML = ''; qrContainer.style.borderStyle = 'solid'; qrContainer.style.borderColor = '#6c5ce7';
+        qrcode = new QRCode(qrContainer, { text: response.data.qr_token, width: 200, height: 200, colorDark : "#2f3542", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H });
+        startCountdown(120);
+      } else {
+        document.getElementById('status-text').innerText = '❌ Gagal: ' + response.error;
+      }
+    }
+
+    function startCountdown(seconds) {
+      let timeLeft = seconds; const countdownEl = document.getElementById('countdown-text');
+      countdownEl.style.opacity = '1'; countdownEl.style.background = '#ffeaa7'; countdownEl.style.color = '#d35400';
+      countdownTimer = setInterval(() => {
+        timeLeft--; countdownEl.innerText = '🔄 Auto-refresh dalam ' + timeLeft + ' dtk';
+        if (timeLeft <= 10) { countdownEl.style.background = '#ff7675'; countdownEl.style.color = '#ffffff'; } 
+        if (timeLeft <= 0) { clearInterval(countdownTimer); generateQR(); }
+      }, 1000); 
+    }
+
+    async function fetchAccel() {
+      const nim = document.getElementById('search-nim-accel').value.trim();
+      const res = document.getElementById('accel-status');
+      if(!nim) return alert("Masukkan NIM terlebih dahulu!");
+      
+      res.innerText = "⏳ Mencari data getaran di server...";
+      document.getElementById('btn-fetch-accel').disabled = true;
+
+      // MENGGUNAKAN FETCH
+      const response = await sendRequest(`sensor/accel/latest&nim=${nim}`);
+      document.getElementById('btn-fetch-accel').disabled = false;
+      if(response.ok) {
+        document.getElementById('dosen-val-x').innerText = response.data.x;
+        document.getElementById('dosen-val-y').innerText = response.data.y;
+        document.getElementById('dosen-val-z').innerText = response.data.z;
+        res.innerText = "✅ Data terakhir direkam: " + new Date(response.data.ts).toLocaleTimeString();
+      } else {
+        res.innerText = "❌ Gagal: Mahasiswa belum merekam sensor atau NIM salah.";
+      }
+    }
+
+    function initMap(lat, lng) {
+      const mapDiv = document.getElementById('map'); mapDiv.style.display = 'block';
+      if (!map) {
+        map = L.map('map').setView([lat, lng], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        marker = L.marker([lat, lng]).addTo(map);
+      } else { map.setView([lat, lng]); marker.setLatLng([lat, lng]); }
+    }
+
+    async function fetchGPS() {
+      const nim = document.getElementById('search-nim-gps').value.trim();
+      const res = document.getElementById('gps-status');
+      if(!nim) return alert("Masukkan NIM terlebih dahulu!");
+      
+      res.innerText = "⏳ Mencari lokasi satelit mahasiswa...";
+      document.getElementById('btn-fetch-gps').disabled = true;
+
+      // MENGGUNAKAN FETCH
+      const response = await sendRequest(`sensor/gps/marker&nim=${nim}`);
+      document.getElementById('btn-fetch-gps').disabled = false;
+      if(response.ok) {
+        document.getElementById('dosen-val-lat').innerText = response.data.lat;
+        document.getElementById('dosen-val-lng').innerText = response.data.lng;
+        initMap(response.data.lat, response.data.lng);
+        res.innerText = "✅ Lokasi ditemukan pada: " + new Date(response.data.ts).toLocaleTimeString();
+      } else {
+        res.innerText = "❌ Gagal: Mahasiswa belum mengirim lokasi atau NIM salah.";
+      }
+    }
+  </script>
+</body>
+</html>
