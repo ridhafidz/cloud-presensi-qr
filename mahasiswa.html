@@ -204,6 +204,12 @@
 
     async function toggleCamera() {
 
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+  alert("Browser tidak mendukung kamera");
+  return;
+}
+
   const btn = document.getElementById('btn-camera');
 
   if (!isCameraOpen) {
@@ -217,13 +223,13 @@
 
       const cameras = await Html5Qrcode.getCameras();
 
-      if (cameras && cameras.length) {
+if (cameras && cameras.length) {
 
-        const cameraId = cameras[0].id;
+  let cameraId = cameras[cameras.length - 1].id; // pakai kamera belakang
 
-        await html5QrCode.start(
-          cameraId,
-          { fps: 10, qrbox: 250 },
+  await html5QrCode.start(
+    cameraId,
+    { fps: 10, qrbox: 250 },
           (decodedText) => {
 
   document.getElementById('manual-token').value = decodedText;
