@@ -205,7 +205,7 @@
 
 async function toggleCamera() {
 
-  const btn = document.getElementById('btn-camera');
+  const btn = document.getElementById("btn-camera");
 
   if (!isCameraOpen) {
 
@@ -214,25 +214,39 @@ async function toggleCamera() {
       btn.innerText = "Membuka kamera...";
       btn.disabled = true;
 
-      // tampilkan area kamera
       document.getElementById("reader").style.display = "block";
 
-      // buat instance scanner
       html5QrCode = new Html5Qrcode("reader");
 
-      // paksa browser meminta izin kamera
-      await navigator.mediaDevices.getUserMedia({ video: true });
+      // ambil semua kamera di device
+      const devices = await Html5Qrcode.getCameras();
 
-      // mulai kamera (kamera belakang)
+      if (!devices || devices.length === 0) {
+        alert("❌ Tidak ada kamera ditemukan");
+        resetCameraUI();
+        return;
+      }
+
+      // pilih kamera belakang jika ada
+      let cameraId = devices[0].id;
+
+      devices.forEach(device => {
+        if (device.label.toLowerCase().includes("back") ||
+            device.label.toLowerCase().includes("rear")) {
+          cameraId = device.id;
+        }
+      });
+
       await html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
+        cameraId,
+        {
+          fps: 10,
+          qrbox: 250
+        },
         (decodedText) => {
 
-          // isi token otomatis
-          document.getElementById('manual-token').value = decodedText;
+          document.getElementById("manual-token").value = decodedText;
 
-          // stop kamera setelah scan
           html5QrCode.stop().then(() => {
             html5QrCode.clear();
             html5QrCode = null;
@@ -252,8 +266,8 @@ async function toggleCamera() {
 
     } catch (err) {
 
-      console.error("Error kamera:", err);
-      alert("❌ Tidak bisa mengakses kamera");
+      console.error(err);
+      alert("❌ Kamera tidak bisa dibuka di device ini");
 
       resetCameraUI();
     }
@@ -269,8 +283,6 @@ async function toggleCamera() {
   }
 }
   
-
-
     async function submitManualToken() {
       const nim = document.getElementById('input-nim-qr').value.trim();
       const nama = document.getElementById('input-nama').value.trim();
@@ -382,6 +394,19 @@ async function toggleCamera() {
         isGpsActive = false; navigator.geolocation.clearWatch(gpsWatchId);
         btn.innerText = "📍 Mulai Deteksi Lokasi"; btn.className = "btn-primary"; res.innerText = "🛑 Pelacakan dihentikan.";
       }
+    }
+
+    function resetCameraUI(){
+
+      const btn = document.getElementById("btn-camera");
+
+      document.getElementById("reader").style.display = "none";
+
+      btn.innerText = "📷 Buka Kamera QR";
+      btn.className = "btn-primary";
+      btn.disabled = false;
+
+      isCameraOpen = false;
     }
   </script>
 
