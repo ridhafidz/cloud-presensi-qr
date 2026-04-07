@@ -156,22 +156,51 @@
       if(!course || !session) return alert("Course ID dan Session ID wajib diisi!");
 
       const btn = document.getElementById('btn-generate');
-      btn.disabled = true; btn.innerText = "Membuat QR...";
+      btn.disabled = true;
+      btn.innerText = "Membuat QR...";
+
       if (countdownTimer) clearInterval(countdownTimer);
-      document.getElementById('placeholder').style.display = 'none'; document.getElementById('status-text').innerText = '⏳ Sedang generate...'; document.getElementById('countdown-text').style.opacity = '0';
-      
-      const payload = { course_id: course, session_id: session, ts: new Date().toISOString() };
+
+      document.getElementById('placeholder').style.display = 'none';
+      document.getElementById('status-text').innerText = '⏳ Sedang generate...';
+      document.getElementById('countdown-text').style.opacity = '0';
+  
+      const payload = { 
+        course_id: course, 
+        session_id: session, 
+        ts: new Date().toISOString() 
+      };
+
       const response = await sendRequest('presence/qr/generate', payload);
 
-      btn.disabled = false; btn.innerText = "Paksa Refresh QR";
+      btn.disabled = false;
+      btn.innerText = "Paksa Refresh QR";
+
       if(response.ok) {
-        document.getElementById('status-text').innerText = '✅ Token Aktif: ' + response.data.qr_token;
+        const qrData = response.data.qr_data;
+        const qrString = JSON.stringify(qrData);
+
+      // ✅ tampilkan info QR (lebih jelas ke dosen)
+        document.getElementById('status-text').innerText =
+        `✅ ${qrData.course_id} - ${qrData.session_id}\nExpired: ${new Date(qrData.expires_at).toLocaleTimeString()}`;
+
         const qrContainer = document.getElementById('qr-container');
-        qrContainer.innerHTML = ''; qrContainer.style.borderStyle = 'solid'; qrContainer.style.borderColor = '#6c5ce7';
+        qrContainer.innerHTML = '';
+        qrContainer.style.borderStyle = 'solid';
+        qrContainer.style.borderColor = '#6c5ce7';
         
-        // Ukuran QR dibesarkan sedikit khusus web dosen
-        qrcode = new QRCode(qrContainer, { text: String(response.data.qr_token), width: 250, height: 250, colorDark : "#2f3542", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H });
+    // 🔥 QR sekarang berisi JSON (bukan token doang)
+        qrcode = new QRCode(qrContainer, {
+          text: qrString,
+          width: 250,
+          height: 250,
+          colorDark : "#2f3542",
+          colorLight : "#ffffff",
+          correctLevel : QRCode.CorrectLevel.H
+        });
+
         startCountdown(120);
+
       } else {
         document.getElementById('status-text').innerText = '❌ Gagal: ' + response.error;
       }

@@ -151,9 +151,6 @@
   <script>
     // MASUKKAN URL WEB APP GOOGLE APPS SCRIPT KAMU DI SINI:
     const API_URL = "https://script.google.com/macros/s/AKfycbw8aZp74OIFVsWDKdYUNZ8XpPlz_nm-oGJshX7_xNZk12AuiccI3TjFMPqa9S8d0Tti5w/exec";
-
-    const defaultCourseId = 'cloud-101';
-    const defaultSessionId = 'sesi-02';
     
     function getDeviceId() {
       let d = localStorage.getItem('device_id');
@@ -292,7 +289,7 @@ async function toggleCamera() {
       if (!nim || !nama || !token) { res.innerText = "❌ Harap isi NIM, Nama, dan Token QR!"; res.style.background = "#ff7675"; res.style.color = "white"; return; }
       res.innerText = "⏳ Memproses check-in..."; res.style.background = "#ffeaa7"; res.style.color = "#d35400";
 
-      const payload = { user_id: `${nim} - ${nama}`, device_id: getDeviceId(), course_id: defaultCourseId, session_id: defaultSessionId, qr_token: token, ts: new Date().toISOString() };
+      const payload = { user_id: `${nim} - ${nama}`, device_id: getDeviceId(), qr_token: token, ts: new Date().toISOString() };
       const response = await sendRequest('presence/checkin', payload);
       
       if(response.ok) {
