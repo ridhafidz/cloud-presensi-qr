@@ -1,131 +1,166 @@
 const SPREADSHEET_ID = "1A-PRMkgt7YbXCelkrrfSLMBHh1fdzACXiM4gy4trONM";
+// ============================================================
+// GAS BRIDGE - gas-bridge.js
+// Deploy ini sebagai Google Apps Script TERPISAH (Web App #3)
+// TIDAK perlu spreadsheet sendiri.
+// Semua request dari frontend (dosen.html & mahasiswa.html) 
+// masuk ke sini, lalu diteruskan ke GAS yang tepat.
+// ============================================================
 
+// URL kedua GAS yang sudah di-deploy sebagai Web App
+const URL_GAS_DOSEN     = "https://script.google.com/macros/s/AKfycbwkzAgfyr1ArXGgag5DdI-3MrCmjEHZT-zmO8IBoO_tMbxpIbjqhGGARHNHjkTkZl-fCA/exec";
+const URL_GAS_MAHASISWA = "https://script.google.com/macros/s/AKfycbwkzAgfyr1ArXGgag5DdI-3MrCmjEHZT-zmO8IBoO_tMbxpIbjqhGGARHNHjkTkZl-fCA/exec";
+
+// ============================================================
+// ROUTING GET (dosen pantau sensor mahasiswa)
+// ============================================================
 function doGet(e) {
   const path = (e.parameter && e.parameter.path) ? e.parameter.path : "";
 
-  if (path === "presence/status") return handleGetStatus(e);
-  if (path === "sensor/accel/latest") return handleGetAccelLatest(e);
-  if (path === "sensor/gps/marker") return handleGetGPSMarker(e);
-  if (path === "sensor/gps/polyline") return handleGetGPSPolyline(e);
+  // Route GET ke GAS Mahasiswa
+  if (path === "presence/status")     return forwardGet(URL_GAS_MAHASISWA, path, e.parameter);
+  if (path === "sensor/accel/latest") return forwardGet(URL_GAS_MAHASISWA, path, e.parameter);
+  if (path === "sensor/gps/marker")   return forwardGet(URL_GAS_MAHASISWA, path, e.parameter);
 
-  return sendError("Route GET not found");
+  return sendError("Route GET tidak dikenal di Bridge");
 }
 
+// ============================================================
+// ROUTING POST
+// ============================================================
 function doPost(e) {
   const path = (e.parameter && e.parameter.path) ? e.parameter.path : "";
   let body = {};
-  
+
   try {
     body = JSON.parse(e.postData.contents);
-  } catch(err) {
+  } catch (err) {
     return sendError("Invalid JSON Body");
   }
 
-  if (path === "presence/qr/generate") return handleGenerateQR(body);
-  if (path === "presence/checkin") return handleCheckin(body);
-  if (path === "sensor/accel/batch") return handleAccelBatch(body);
-  if (path === "sensor/gps") return handleGPS(body);
+  // Dosen generate QR → langsung ke GAS Dosen
+  if (path === "presence/qr/generate") {
+    return forwardPost(URL_GAS_DOSEN, path, body);
+  }
 
-  return sendError("Route POST not found");
+  // Mahasiswa checkin → Bridge validasi token ke GAS Dosen dulu,
+  // baru simpan presence ke GAS Mahasiswa
+  if (path === "presence/checkin") {
+    return handleCheckinBridge(body);
+  }
+
+  // Sensor mahasiswa → langsung ke GAS Mahasiswa
+  if (path === "sensor/accel/batch") return forwardPost(URL_GAS_MAHASISWA, path, body);
+  if (path === "sensor/gps")         return forwardPost(URL_GAS_MAHASISWA, path, body);
+
+  return sendError("Route POST tidak dikenal di Bridge");
+}
+
+// ============================================================
+// LOGIC CHECKIN: Validasi ke GAS Dosen, lalu simpan ke GAS Mahasiswa
+// ============================================================
+function handleCheckinBridge(body) {
+  // Pastikan qr_data ada
+  if (!body.user_id || !body.device_id || !body.qr_data) {
+    return sendError("missing_field: user_id, device_id, qr_data wajib ada");
+  }
+
+  const { token, course_id, session_id, expires_at } = body.qr_data;
+
+  // Cek expired di sisi Bridge dulu (tanpa request ke server)
+  if (new Date() > new Date(expires_at)) {
+    return sendError("qr_expired");
+  }
+
+  // Step 1: Validasi token ke GAS Dosen
+  const validasiResult = forwardPostRaw(URL_GAS_DOSEN, "presence/token/validate", {
+    token,
+    course_id,
+    session_id
+  });
+
+  if (!validasiResult.ok) {
+    return sendRawResult(validasiResult); // token_invalid atau token_expired
+  }
+
+  // Step 2: Simpan checkin ke GAS Mahasiswa
+  const checkinPayload = {
+    user_id:    body.user_id,
+    device_id:  body.device_id,
+    course_id,
+    session_id,
+    token
+  };
+
+  return forwardPost(URL_GAS_MAHASISWA, "presence/checkin", checkinPayload);
+}
+
+// ============================================================
+// HELPER: Forward GET request ke GAS lain
+// ============================================================
+function forwardGet(targetUrl, path, params) {
+  try {
+    // Bangun query string dari semua parameter (selain 'path' itu sendiri)
+    const queryParts = [`path=${encodeURIComponent(path)}`];
+    for (const key in params) {
+      if (key !== "path") {
+        queryParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`);
+      }
+    }
+
+    const url = targetUrl + "?" + queryParts.join("&");
+    const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    const result = JSON.parse(response.getContentText());
+    return sendRawResult(result);
+
+  } catch (err) {
+    return sendError("Bridge forwardGet error: " + err.toString());
+  }
+}
+
+// ============================================================
+// HELPER: Forward POST request ke GAS lain (return ContentService)
+// ============================================================
+function forwardPost(targetUrl, path, body) {
+  try {
+    const result = forwardPostRaw(targetUrl, path, body);
+    return sendRawResult(result);
+  } catch (err) {
+    return sendError("Bridge forwardPost error: " + err.toString());
+  }
+}
+
+// ============================================================
+// HELPER: Forward POST dan return object (bukan ContentService)
+// Dipakai untuk chaining (misalnya checkin yang butuh 2 step)
+// ============================================================
+function forwardPostRaw(targetUrl, path, body) {
+  const response = UrlFetchApp.fetch(targetUrl + "?path=" + encodeURIComponent(path), {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(body),
+    muteHttpExceptions: true
+  });
+  return JSON.parse(response.getContentText());
+}
+
+// ============================================================
+// HELPER: Kembalikan hasil dari GAS lain sebagai ContentService
+// ============================================================
+function sendRawResult(result) {
+  return ContentService
+    .createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function sendSuccess(data) {
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, data })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService
+    .createTextOutput(JSON.stringify({ ok: true, data }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function sendError(error) {
-  return ContentService.createTextOutput(JSON.stringify({ ok: false, error })).setMimeType(ContentService.MimeType.JSON);
-}
-
-// --- FUNGSI MODUL PRESENSI ---
-function handleGenerateQR(body) {
-  if (!body.course_id || !body.session_id) return sendError("missing_field");
-  const token = "TKN-" + Utilities.getUuid().substring(0,6).toUpperCase();
-  const now = new Date();
-  const expires = new Date(now.getTime() + 120000); 
-
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("tokens");
-  sheet.appendRow([token, body.course_id, body.session_id, now.toISOString(), expires.toISOString(), false]);
-  return sendSuccess({ qr_token: token, expires_at: expires.toISOString() });
-}
-
-function handleCheckin(body) {
-  if (!body.user_id || !body.qr_token || !body.course_id || !body.session_id) return sendError("missing_field");
-
-  const sheetTokens = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("tokens");
-  const dataTokens = sheetTokens.getDataRange().getValues();
-  let tokenValid = false, tokenExists = false;
-
-  for (let i = dataTokens.length - 1; i > 0; i--) {
-    if (dataTokens[i][0] === body.qr_token) {
-      tokenExists = true;
-      if (dataTokens[i][1] === body.course_id && dataTokens[i][2] === body.session_id && new Date() <= new Date(dataTokens[i][4])) {
-        tokenValid = true;
-      }
-      break; 
-    }
-  }
-
-  if (!tokenExists) return sendError("token_invalid");
-  if (!tokenValid) return sendError("token_expired");
-
-  const sheetPresence = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("presence");
-  const presenceId = "PR-" + Utilities.getUuid().substring(0, 4).toUpperCase();
-  const recordedAt = new Date().toISOString();
-
-  sheetPresence.appendRow([presenceId, body.user_id, body.device_id || "UNKNOWN", body.course_id, body.session_id, body.qr_token, body.ts || recordedAt, recordedAt]);
-  return sendSuccess({ presence_id: presenceId, status: "checked_in" });
-}
-
-function handleGetStatus(e) {
-  const { user_id, course_id, session_id } = e.parameter;
-  const data = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("presence").getDataRange().getValues();
-  for (let i = data.length - 1; i > 0; i--) {
-    if (data[i][1] === user_id && data[i][3] === course_id && data[i][4] === session_id) {
-      return sendSuccess({ user_id, course_id, session_id, status: "checked_in", last_ts: data[i][7] });
-    }
-  }
-  return sendError("not_checked_in");
-}
-
-// --- FUNGSI MODUL SENSOR ---
-function handleAccelBatch(body) {
-  if (!body.device_id || !body.data || !Array.isArray(body.data)) return sendError("invalid_batch_data");
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("accel");
-  const batch_ts = new Date().toISOString();
-  const rows = body.data.map(d => [body.device_id, d.x, d.y, d.z, d.ts, batch_ts, batch_ts]);
-  if (rows.length > 0) sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
-  return sendSuccess({ saved_records: rows.length });
-}
-
-function handleGPS(body) {
-  if (!body.device_id || !body.lat || !body.lng) return sendError("missing_gps_data");
-  const ts = new Date().toISOString();
-  SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("gps").appendRow([body.device_id, body.lat, body.lng, body.accuracy || 0, body.altitude || 0, body.ts || ts, ts]);
-  return sendSuccess({ status: "recorded", timestamp: ts });
-}
-
-function handleGetAccelLatest(e) {
-  if (!e.parameter.nim) return sendError("missing_nim");
-  const data = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("accel").getDataRange().getValues();
-  for (let i = data.length - 1; i > 0; i--) {
-    if (String(data[i][0]).startsWith(e.parameter.nim)) {
-      return sendSuccess({ 
-        x: data[i][1], 
-        y: data[i][2], 
-        z: data[i][3], 
-        ts: data[i][6] || data[i][5] 
-      });
-    }
-  }
-  return sendError("data_not_found");
-}
-
-function handleGetGPSMarker(e) {
-  if (!e.parameter.nim) return sendError("missing_nim");
-  const data = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("gps").getDataRange().getValues();
-  for (let i = data.length - 1; i > 0; i--) {
-    if (String(data[i][0]).startsWith(e.parameter.nim)) return sendSuccess({ lat: data[i][1], lng: data[i][2], ts: data[i][6] });
-  }
-  return sendError("data_not_found");
+  return ContentService
+    .createTextOutput(JSON.stringify({ ok: false, error }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
