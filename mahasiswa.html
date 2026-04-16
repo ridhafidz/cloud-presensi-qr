@@ -176,7 +176,7 @@
       try {
         const isPost = payload !== null;
         const options = { method: isPost ? 'POST' : 'GET' };
-        if (isPost) { options.body = JSON.stringify(payload); }
+        if (isPost) { options.body = JSON.stringify(payload); options.headers = { "Content-Type": "text/plain;charset=utf-8" }; }
         const response = await fetch(`${API_URL}?path=${path}`, options);
         return await response.json();
       } catch (error) { return { ok: false, error: error.message }; }
@@ -280,25 +280,49 @@ async function toggleCamera() {
   }
 }
   
-    async function submitManualToken() {
-      const nim = document.getElementById('input-nim-qr').value.trim();
-      const nama = document.getElementById('input-nama').value.trim();
-      const token = document.getElementById('manual-token').value.trim();
-      const res = document.getElementById('qr-result');
+async function submitManualToken() {
+  const nim = document.getElementById('input-nim-qr').value.trim();
+  const nama = document.getElementById('input-nama').value.trim();
+  const rawToken = document.getElementById('manual-token').value.trim();
+  const res = document.getElementById('qr-result');
 
-      if (!nim || !nama || !token) { res.innerText = "❌ Harap isi NIM, Nama, dan Token QR!"; res.style.background = "#ff7675"; res.style.color = "white"; return; }
-      res.innerText = "⏳ Memproses check-in..."; res.style.background = "#ffeaa7"; res.style.color = "#d35400";
+  if (!nim || !nama || !rawToken) {
+    res.innerText = "❌ Harap isi NIM, Nama, dan Token QR!";
+    res.style.background = "#ff7675"; res.style.color = "white";
+    return;
+  }
 
-      const payload = { user_id: `${nim} - ${nama}`, device_id: getDeviceId(), qr_token: token, ts: new Date().toISOString() };
-      const response = await sendRequest('presence/checkin', payload);
-      
-      if(response.ok) {
-        res.innerHTML = `✅ <b>Berhasil!</b><br>ID: ${response.data.presence_id}<br>${new Date().toLocaleTimeString()}`;
-        res.style.background = "#e8f8f5"; res.style.color = "#27ae60";
-      } else {
-        res.innerText = "❌ Gagal: " + response.error; res.style.background = "#ff7675"; res.style.color = "white";
-      }
-    }
+  // ✅ Parse JSON dari QR (QR berisi JSON string, bukan token biasa)
+  let qrData;
+  try {
+    qrData = JSON.parse(rawToken);
+  } catch (e) {
+    res.innerText = "❌ QR tidak valid atau sudah kadaluarsa!";
+    res.style.background = "#ff7675"; res.style.color = "white";
+    return;
+  }
+
+  res.innerText = "⏳ Memproses check-in...";
+  res.style.background = "#ffeaa7"; res.style.color = "#d35400";
+
+  // ✅ Key diubah dari 'qr_token' → 'qr_data', isi object hasil parse
+  const payload = {
+    user_id: `${nim} - ${nama}`,
+    device_id: getDeviceId(),
+    qr_data: qrData,  // ← sekarang object, sesuai yang Bridge ekspek
+    ts: new Date().toISOString()
+  };
+
+  const response = await sendRequest('presence/checkin', payload);
+
+  if (response.ok) {
+    res.innerHTML = `✅ <b>Berhasil!</b><br>ID: ${response.data.presence_id}<br>${new Date().toLocaleTimeString()}`;
+    res.style.background = "#e8f8f5"; res.style.color = "#27ae60";
+  } else {
+    res.innerText = "❌ Gagal: " + response.error;
+    res.style.background = "#ff7675"; res.style.color = "white";
+  }
+}
 
     // ==================== MODUL 2: ACCELEROMETER ====================
     let isAccelRecording = false; let accelData = []; let chartObj;

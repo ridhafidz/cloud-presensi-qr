@@ -1,4 +1,4 @@
-const SPREADSHEET_DOSEN = "https://docs.google.com/spreadsheets/d/1pp0VRB_VVo4SZFCRvNHEJwX0BOtiy5P3-MY7tpqDYo0/edit?usp=sharing";
+const SPREADSHEET_DOSEN = "1A-PRMkgt7YbXCelkrrfSLMBHh1fdzACXiM4gy4trONM";
 
 function doGet(e) {
   return sendError("Route GET not found di GAS Dosen");

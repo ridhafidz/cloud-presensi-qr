@@ -7,7 +7,7 @@
 //   - "gps"
 // ============================================================
 
-const SPREADSHEET_MAHASISWA = "https://docs.google.com/spreadsheets/d/1fbDcYSXGmgIeKBBM7ZKVIjqFTMGzMss7EC9ZK7ViBOw/edit?usp=sharing";
+const SPREADSHEET_MAHASISWA = "1A-PRMkgt7YbXCelkrrfSLMBHh1fdzACXiM4gy4trONM";
 
 function doGet(e) {
   const path = (e.parameter && e.parameter.path) ? e.parameter.path : "";
