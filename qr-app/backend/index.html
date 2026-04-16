@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base target="_top">
+  <title>Dashboard Presensi Dosen</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  
+  <style>
+    body { 
+      font-family: 'Poppins', sans-serif; 
+      background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%); 
+      margin: 0; 
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    
+    .card { 
+      background: rgba(255, 255, 255, 0.95); 
+      padding: 40px 30px; 
+      border-radius: 20px; 
+      box-shadow: 0 15px 35px rgba(0,0,0,0.1); 
+      width: 100%;
+      max-width: 420px; 
+      text-align: center; 
+      backdrop-filter: blur(10px);
+    }
+    
+    h2 { 
+      margin-top: 0; 
+      color: #2c3e50; 
+      font-size: 24px;
+      font-weight: 600;
+    }
+    
+    .badge-container {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 25px;
+    }
+    
+    .badge {
+      background: #f1f2f6;
+      color: #57606f;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid #dfe4ea;
+    }
+    
+    #qr-container { 
+      background: #ffffff;
+      border: 2px dashed #ced6e0;
+      border-radius: 16px;
+      margin: 0 auto; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center;
+      width: 240px;
+      height: 240px;
+      padding: 10px;
+      transition: all 0.3s ease;
+    }
+    
+    #qr-container img, #qr-container canvas {
+      border-radius: 8px;
+    }
+    
+    #placeholder {
+      color: #a4b0be;
+      font-size: 14px;
+      padding: 0 20px;
+    }
+    
+    .status { 
+      margin-top: 20px; 
+      font-size: 14px;
+      font-weight: 500; 
+      color: #2f3542; 
+      white-space: pre-line; /* Agar \n terbaca sebagai enter */
+    }
+    
+    .countdown { 
+      margin-top: 12px; 
+      color: #ff4757; 
+      font-size: 13px; 
+      font-weight: 600; 
+      background: #ffeaa7;
+      display: inline-block;
+      padding: 5px 15px;
+      border-radius: 20px;
+      opacity: 0; /* Sembunyikan sebelum aktif */
+      transition: opacity 0.3s;
+    }
+    
+    button { 
+      background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+      color: white; 
+      border: none; 
+      padding: 14px 20px; 
+      border-radius: 12px; 
+      cursor: pointer; 
+      font-size: 15px; 
+      font-weight: 600;
+      font-family: 'Poppins', sans-serif;
+      margin-top: 25px; 
+      width: 100%;
+      box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+      transition: all 0.2s ease;
+    }
+    
+    button:hover { 
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
+    }
+    
+    button:active {
+      transform: translateY(1px);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>Scan Presensi</h2>
+    
+    <div class="badge-container">
+      <div class="badge"> Cloud-101</div>
+      <div class="badge"> Sesi: 02</div>
+    </div>
+    
+    <div id="qr-container">
+      <span id="placeholder">Klik tombol di bawah untuk mulai sesi presensi</span>
+    </div>
+    
+    <div id="status-text" class="status">Sistem siap digunakan.</div>
+    <div id="countdown-text" class="countdown"></div>
+    
+    <button onclick="generateQR()" id="btn-generate">Mulai Generate QR</button>
+  </div>
+
+  <script>
+    let qrcode = null;
+    let countdownTimer = null; 
+
+    function generateQR() {
+      clearInterval(countdownTimer);
+
+      document.getElementById('btn-generate').innerText = "Paksa Refresh QR";
+      document.getElementById('placeholder').style.display = 'none';
+      document.getElementById('status-text').innerText = ' Membuat token pintar...';
+      
+      const countdownEl = document.getElementById('countdown-text');
+      countdownEl.style.opacity = '0';
+      
+      const payload = {
+        course_id: "cloud-101",
+        session_id: "sesi-02",
+        ts: new Date().toISOString()
+      };
+
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onError)
+        .processGenerateQR(payload); 
+    }
+
+    function onSuccess(response) {
+      if(response.ok) {
+        document.getElementById('status-text').innerText = '✅ Token Aktif: ' + response.data.qr_token;
+        
+        const qrContainer = document.getElementById('qr-container');
+        qrContainer.innerHTML = '';
+        qrContainer.style.borderStyle = 'solid'; // Ubah border jadi solid saat aktif
+        qrContainer.style.borderColor = '#2ed573';
+        
+        qrcode = new QRCode(qrContainer, {
+          text: response.data.qr_token,
+          width: 220,
+          height: 220,
+          colorDark : "#2f3542",
+          colorLight : "#ffffff",
+          correctLevel : QRCode.CorrectLevel.H
+        });
+
+        startCountdown(120);
+      } else {
+        document.getElementById('status-text').innerText = '❌ Gagal: ' + response.error;
+      }
+    }
+
+    function onError(error) {
+      document.getElementById('status-text').innerText = '⚠️ Terjadi kesalahan jaringan!';
+      console.error(error);
+    }
+
+    function startCountdown(seconds) {
+      let timeLeft = seconds;
+      const countdownEl = document.getElementById('countdown-text');
+      
+      countdownEl.innerText = '🔄 Auto-refresh dalam ' + timeLeft + ' dtk';
+      countdownEl.style.opacity = '1'; // Munculkan badge countdown
+      
+      countdownTimer = setInterval(() => {
+        timeLeft--;
+        countdownEl.innerText = '🔄 Auto-refresh dalam ' + timeLeft + ' dtk';
+        
+        if (timeLeft <= 10) {
+          countdownEl.style.background = '#ff7675';
+          countdownEl.style.color = '#ffffff';
+        } else {
+          countdownEl.style.background = '#ffeaa7';
+          countdownEl.style.color = '#ff4757';
+        }
+        
+        if (timeLeft <= 0) {
+          clearInterval(countdownTimer);
+          generateQR(); 
+        }
+      }, 1000); 
+    }
+  </script>
+</body>
+</html>
