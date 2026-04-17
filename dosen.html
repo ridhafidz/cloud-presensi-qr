@@ -128,7 +128,7 @@
 
   <script>
     // MASUKKAN URL WEB APP GOOGLE APPS SCRIPT KAMU DI SINI:
-    const API_URL = "https://script.google.com/macros/s/AKfycbw8aZp74OIFVsWDKdYUNZ8XpPlz_nm-oGJshX7_xNZk12AuiccI3TjFMPqa9S8d0Tti5w/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbzCrjKAS13tduFGYUsAyiHBu97qintiCFfVU3wTsBpmx0IT9fsALYR0wXzeIveHELl31Q/exec";
 
     let qrcode = null; let countdownTimer = null; let map = null; let marker = null;
 
@@ -173,17 +173,19 @@
 
       const response = await sendRequest('presence/qr/generate', payload);
 
+      console.log("RESPONSE:", response);
+      
       btn.disabled = false;
-      btn.innerText = "Paksa Refresh QR";
 
       if(response.ok) {
         const qrData = response.data.qr_data;
         const qrString = JSON.stringify(qrData);
 
       // ✅ tampilkan info QR (lebih jelas ke dosen)
-        document.getElementById('status-text').innerText =
-        `✅ ${qrData.course_id} - ${qrData.session_id}\nExpired: ${new Date(qrData.expires_at).toLocaleTimeString()}`;
-
+        const token = response.data.qr_token;
+document.getElementById('status-text').innerText =
+  `✅ Token: ${token}`;
+  
         const qrContainer = document.getElementById('qr-container');
         qrContainer.innerHTML = '';
         qrContainer.style.borderStyle = 'solid';
@@ -207,12 +209,24 @@
     }
 
     function startCountdown(seconds) {
-      let timeLeft = seconds; const countdownEl = document.getElementById('countdown-text');
-      countdownEl.style.opacity = '1'; countdownEl.style.background = '#ffeaa7'; countdownEl.style.color = '#d35400';
+      let timeLeft = seconds;
+      const countdownEl = document.getElementById('countdown-text');
+      countdownEl.style.opacity = '1';
+      countdownEl.style.background = '#ffeaa7';
+      countdownEl.style.color = '#d35400';
+
       countdownTimer = setInterval(() => {
-        timeLeft--; countdownEl.innerText = '🔄 Auto-refresh dalam ' + timeLeft + ' dtk';
-        if (timeLeft <= 10) { countdownEl.style.background = '#ff7675'; countdownEl.style.color = '#ffffff'; } 
-        if (timeLeft <= 0) { clearInterval(countdownTimer); generateQR(); }
+        timeLeft--;
+        countdownEl.innerText = '🔄 Auto-refresh dalam ' + timeLeft + ' dtk';
+        if (timeLeft <= 10) {
+          countdownEl.style.background = '#ff7675';
+          countdownEl.style.color = '#ffffff';
+        }
+        if (timeLeft <= 0) {
+          clearInterval(countdownTimer);  // ← stop dulu
+          countdownTimer = null;          // ← reset variabel
+          generateQR();                   // ← baru panggil ulang
+        }
       }, 1000); 
     }
 
