@@ -151,6 +151,8 @@
   <script>
     // MASUKKAN URL WEB APP GOOGLE APPS SCRIPT KAMU DI SINI:
     const API_URL = "https://script.google.com/macros/s/AKfycbzCrjKAS13tduFGYUsAyiHBu97qintiCFfVU3wTsBpmx0IT9fsALYR0wXzeIveHELl31Q/exec";
+
+    const API_URL_MITRA = "https://script.google.com/macros/s/AKfycbw0SWUN4YaeSJL-xRsYMOP1lsXVl5DebVcTgP_sCBTCcjbOrfEcG0RuYMpuW_xgUjLL/exec";
     
     function getDeviceId() {
       let d = localStorage.getItem('device_id');
@@ -290,6 +292,26 @@ async function toggleCamera() {
       res.innerText = "⏳ Memproses check-in..."; res.style.background = "#ffeaa7"; res.style.color = "#d35400";
 
       const payload = { user_id: `${nim} - ${nama}`, device_id: getDeviceId(), qr_token: token, ts: new Date().toISOString() };
+      // 1. VALIDASI TOKEN KE GAS DOSEN (MITRA)
+      const validasi = await fetch(`${API_URL_MITRA}?path=presence/token/validate`, {
+        method: 'POST',
+        body: JSON.stringify({
+          token: token,
+          course_id: defaultCourseId,
+          session_id: defaultSessionId
+        })
+      });
+
+      const validasiData = await validasi.json();
+
+      if (!validasiData.ok) {
+        res.innerText = "❌ Token tidak valid dari dosen!";
+        res.style.background = "#ff7675";
+        res.style.color = "white";
+        return;
+      }
+
+      // 2. JIKA VALID → CHECKIN KE GAS KAMU
       const response = await sendRequest('presence/checkin', payload);
       
       if(response.ok) {
